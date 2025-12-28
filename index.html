@@ -3,15 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Snakeit | Master Edition</title>
+    <title>AI Snakeit | Evolution Edition</title>
     <style>
         :root {
             --bg: #020617; --panel: #0f172a; --text: #f8fafc;
             --accent: #38bdf8; --snake-head: #4ade80; --snake-body: #16a34a; --food: #f43f5e;
+            --grid: rgba(56, 189, 248, 0.05);
         }
         [data-theme="day"] {
             --bg: #f1f5f9; --panel: #ffffff; --text: #0f172a;
             --accent: #0284c7; --snake-head: #22c55e; --snake-body: #15803d; --food: #e11d48;
+            --grid: rgba(0, 0, 0, 0.05);
         }
         body { 
             margin: 0; background: var(--bg); color: var(--text); 
@@ -25,14 +27,12 @@
             transition: background 0.4s ease;
         }
         canvas { background: #000; border-radius: 12px; display: block; margin: 0 auto; touch-action: none; }
-        
         .screen {
             position: absolute; inset: 20px; background: var(--panel);
             z-index: 10; display: flex; flex-direction: column;
             align-items: center; justify-content: center; border-radius: 12px;
             transition: background 0.4s ease;
         }
-
         .theme-switch-container {
             display: flex; align-items: center; gap: 10px; margin-bottom: 25px;
             padding: 8px 16px; background: rgba(148, 163, 184, 0.1); border-radius: 20px;
@@ -43,18 +43,14 @@
         .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: var(--accent); }
         input:checked + .slider:before { transform: translateX(22px); }
-
         .stats-box { text-align: center; margin-bottom: 20px; }
         .stat-line { font-size: 0.9rem; margin: 5px 0; opacity: 0.8; }
         .stat-val { font-weight: bold; color: var(--accent); }
-
         .mobile-controls { display: none; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px; }
         .btn { background: rgba(148, 163, 184, 0.1); border: 1px solid var(--accent); border-radius: 12px; height: 50px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: var(--accent); cursor: pointer; user-select: none; }
         @media (max-width: 600px) { .mobile-controls { display: grid; } }
-
         .hud { display: flex; justify-content: space-between; margin-bottom: 10px; font-family: monospace; }
         button.start-btn { padding: 12px 35px; background: var(--accent); border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; font-size: 1rem; }
-        
         .shake { animation: shake 0.2s 2; }
         @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
     </style>
@@ -64,7 +60,7 @@
 <div class="container" id="gameBox">
     <div class="hud">
         <div id="scoreTxt">SCORE: 000</div>
-        <div id="speedTxt">SPD: 1x</div>
+        <div id="speedTxt">SPD: 0.5x</div>
     </div>
 
     <canvas id="c" width="320" height="320"></canvas>
@@ -100,10 +96,25 @@
 <script>
 const canvas = document.getElementById("c"), ctx = canvas.getContext("2d");
 let score=0, hiScore=localStorage.getItem("ais_hi")||0, gameRunning=false;
-let snake=[{x:8,y:8}], food={x:5,y:5}, dx=0, dy=-1, currentSpeed=150;
+let snake=[{x:8,y:8}], food={x:5,y:5}, dx=0, dy=-1;
+let currentSpeed = 200; 
 let tongueOut = false;
+let dust = [];
+
+// Evolution Colors: [Head, Body]
+const skinTiers = [
+    ["#4ade80", "#16a34a"], // Green (Level 1)
+    ["#22d3ee", "#0891b2"], // Cyan (Level 2)
+    ["#c084fc", "#9333ea"], // Purple (Level 3)
+    ["#fbbf24", "#d97706"], // Gold (Level 4)
+    ["#f43f5e", "#be123c"]  // Crimson (Level 5)
+];
 
 document.getElementById("hiVal").innerText = hiScore;
+
+for(let i=0; i<15; i++) {
+    dust.push({x: Math.random()*320, y: Math.random()*320, s: Math.random()*2});
+}
 
 function toggleTheme() {
     const isDay = document.getElementById("themeCheckbox").checked;
@@ -112,7 +123,7 @@ function toggleTheme() {
 
 function startGame() {
     document.getElementById("homeScreen").style.display = 'none';
-    score=0; snake=[{x:8,y:8}]; dx=0; dy=-1; currentSpeed=150;
+    score=0; snake=[{x:8,y:8}]; dx=0; dy=-1; currentSpeed=200;
     gameRunning=true; 
     runLoop();
 }
@@ -127,14 +138,12 @@ function handleInput(key) {
 
 function update() {
     const head = {x: snake[0].x+dx, y: snake[0].y+dy};
-    
     if(head.x<0||head.x>=16||head.y<0||head.y>=16||snake.some(s=>s.x===head.x&&s.y===head.y)) {
         gameRunning = false;
         triggerGameOver();
         return;
     }
 
-    // Tongue Flick Logic: Flick if close to food or randomly
     const dist = Math.abs(head.x - food.x) + Math.abs(head.y - food.y);
     tongueOut = dist < 4 || Math.random() < 0.1;
 
@@ -142,8 +151,14 @@ function update() {
     if(head.x===food.x && head.y===food.y) {
         score+=10;
         food={x:Math.floor(Math.random()*16), y:Math.floor(Math.random()*16)};
-        currentSpeed = Math.max(60, 150 - (Math.floor(score/20)*10));
+        
+        // Speed up every 3 apples
+        if(score % 30 === 0) {
+            currentSpeed = Math.max(50, currentSpeed - 15);
+        }
     } else { snake.pop(); }
+
+    dust.forEach(p => { p.y += 0.2; if(p.y > 320) p.y = 0; });
 }
 
 function draw() {
@@ -151,51 +166,54 @@ function draw() {
     ctx.fillStyle = isNight ? "#000" : "#fff";
     ctx.fillRect(0,0,320,320);
 
+    // Neon Grid
+    ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--grid');
+    ctx.lineWidth = 1;
+    for(let i=0; i<=320; i+=20) {
+        ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,320); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(320,i); ctx.stroke();
+    }
+
+    // Dust
+    ctx.fillStyle = isNight ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)";
+    dust.forEach(p => ctx.fillRect(p.x, p.y, p.s, p.s));
+
+    // Calculate current skin tier based on every 6 apples (60 points)
+    const tierIndex = Math.min(skinTiers.length - 1, Math.floor(score / 60));
+    const [headColor, bodyColor] = skinTiers[tierIndex];
+
     snake.forEach((s, i) => {
         const isHead = i === 0;
-        const size = Math.max(12, 19 - (i * 0.4)); // Tapering
-        const offset = (20 - size) / 2;
+        const size = Math.max(12, 19 - (i * 0.4));
         const centerX = s.x * 20 + 10;
         const centerY = s.y * 20 + 10;
 
         let grad = ctx.createRadialGradient(centerX-2, centerY-2, 2, centerX, centerY, 10);
         if(isHead) {
-            grad.addColorStop(0, getComputedStyle(document.body).getPropertyValue('--snake-head'));
-            grad.addColorStop(1, "#166534");
+            grad.addColorStop(0, headColor);
+            grad.addColorStop(1, "#000"); // Dark edge for realistic shadow
         } else {
-            grad.addColorStop(0, getComputedStyle(document.body).getPropertyValue('--snake-body'));
-            grad.addColorStop(1, "#064e3b");
+            grad.addColorStop(0, bodyColor);
+            grad.addColorStop(1, "#000");
         }
 
         ctx.fillStyle = grad;
         ctx.beginPath();
-        ctx.roundRect(s.x*20+offset, s.y*20+offset, size, size, isHead?10:5);
+        ctx.roundRect(s.x*20+(20-size)/2, s.y*20+(20-size)/2, size, size, isHead?10:5);
         ctx.fill();
 
         if(isHead) {
-            // Tongue
             if(tongueOut) {
-                ctx.strokeStyle = "#f43f5e";
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.moveTo(centerX + dx*8, centerY + dy*8);
-                ctx.lineTo(centerX + dx*15, centerY + dy*15);
-                ctx.stroke();
+                ctx.strokeStyle = "#f43f5e"; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(centerX + dx*8, centerY + dy*8);
+                ctx.lineTo(centerX + dx*15, centerY + dy*15); ctx.stroke();
             }
-            // Eyes
             ctx.fillStyle = "white";
-            const eyeOff = 5;
-            if(dx!==0) {
-                ctx.fillRect(s.x*20+12*dx+8, s.y*20+5, 3, 3);
-                ctx.fillRect(s.x*20+12*dx+8, s.y*20+12, 3, 3);
-            } else {
-                ctx.fillRect(s.x*20+5, s.y*20+12*dy+8, 3, 3);
-                ctx.fillRect(s.x*20+12, s.y*20+12*dy+8, 3, 3);
-            }
+            if(dx!==0) { ctx.fillRect(s.x*20+12*dx+8, s.y*20+5, 3, 3); ctx.fillRect(s.x*20+12*dx+8, s.y*20+12, 3, 3); }
+            else { ctx.fillRect(s.x*20+5, s.y*20+12*dy+8, 3, 3); ctx.fillRect(s.x*20+12, s.y*20+12*dy+8, 3, 3); }
         }
     });
 
-    // Pulse Food
     const pulse = Math.sin(Date.now() / 200) * 2;
     ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--food');
     ctx.shadowBlur = 10; ctx.shadowColor = ctx.fillStyle;
@@ -203,22 +221,15 @@ function draw() {
     ctx.shadowBlur = 0;
 
     document.getElementById("scoreTxt").innerText = `SCORE: ${score.toString().padStart(3, '0')}`;
-    document.getElementById("speedTxt").innerText = `SPD: ${(150/currentSpeed).toFixed(1)}x`;
+    document.getElementById("speedTxt").innerText = `SPD: ${(100/currentSpeed).toFixed(1)}x`;
 }
 
 function triggerGameOver() {
-    if(score > hiScore) {
-        hiScore = score;
-        localStorage.setItem("ais_hi", hiScore);
-        document.getElementById("hiVal").innerText = hiScore;
-    }
+    if(score > hiScore) { hiScore = score; localStorage.setItem("ais_hi", hiScore); document.getElementById("hiVal").innerText = hiScore; }
     document.getElementById("lastScoreVal").innerText = score;
     document.getElementById("lastScoreContainer").style.display = 'block';
     document.getElementById("gameBox").classList.add("shake");
-    setTimeout(() => {
-        document.getElementById("homeScreen").style.display = 'flex';
-        document.getElementById("gameBox").classList.remove("shake");
-    }, 200);
+    setTimeout(() => { document.getElementById("homeScreen").style.display = 'flex'; document.getElementById("gameBox").classList.remove("shake"); }, 200);
 }
 
 function runLoop() {
@@ -226,7 +237,6 @@ function runLoop() {
     update(); draw();
     setTimeout(runLoop, currentSpeed);
 }
-
 window.addEventListener("keydown", e => handleInput(e.key));
 </script>
 </body>
