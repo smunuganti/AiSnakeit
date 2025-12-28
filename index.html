@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Snakeit | Evolution Edition</title>
+    <title>AI Snakeit | Sync Edition</title>
     <style>
         :root {
             --bg: #020617; --panel: #0f172a; --text: #f8fafc;
@@ -101,13 +101,14 @@ let currentSpeed = 200;
 let tongueOut = false;
 let dust = [];
 
-// Evolution Colors: [Head, Body]
+// Evolution Colors mapped to every 5 apples
 const skinTiers = [
-    ["#4ade80", "#16a34a"], // Green (Level 1)
-    ["#22d3ee", "#0891b2"], // Cyan (Level 2)
-    ["#c084fc", "#9333ea"], // Purple (Level 3)
-    ["#fbbf24", "#d97706"], // Gold (Level 4)
-    ["#f43f5e", "#be123c"]  // Crimson (Level 5)
+    ["#4ade80", "#16a34a"], // Level 1: 0-4 apples (Green)
+    ["#38bdf8", "#0284c7"], // Level 2: 5-9 apples (Blue)
+    ["#c084fc", "#9333ea"], // Level 3: 10-14 apples (Purple)
+    ["#f472b6", "#db2777"], // Level 4: 15-19 apples (Pink)
+    ["#fbbf24", "#d97706"], // Level 5: 20-24 apples (Gold)
+    ["#f87171", "#dc2626"]  // Level 6: 25+ apples (Red)
 ];
 
 document.getElementById("hiVal").innerText = hiScore;
@@ -152,9 +153,9 @@ function update() {
         score+=10;
         food={x:Math.floor(Math.random()*16), y:Math.floor(Math.random()*16)};
         
-        // Speed up every 3 apples
-        if(score % 30 === 0) {
-            currentSpeed = Math.max(50, currentSpeed - 15);
+        // Sync Logic: Change color and increase speed every 5 apples (50 points)
+        if(score % 50 === 0) {
+            currentSpeed = Math.max(50, currentSpeed - 20);
         }
     } else { snake.pop(); }
 
@@ -178,8 +179,8 @@ function draw() {
     ctx.fillStyle = isNight ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)";
     dust.forEach(p => ctx.fillRect(p.x, p.y, p.s, p.s));
 
-    // Calculate current skin tier based on every 6 apples (60 points)
-    const tierIndex = Math.min(skinTiers.length - 1, Math.floor(score / 60));
+    // Get current skin tier based on every 5 apples
+    const tierIndex = Math.min(skinTiers.length - 1, Math.floor(score / 50));
     const [headColor, bodyColor] = skinTiers[tierIndex];
 
     snake.forEach((s, i) => {
@@ -191,7 +192,7 @@ function draw() {
         let grad = ctx.createRadialGradient(centerX-2, centerY-2, 2, centerX, centerY, 10);
         if(isHead) {
             grad.addColorStop(0, headColor);
-            grad.addColorStop(1, "#000"); // Dark edge for realistic shadow
+            grad.addColorStop(1, "#000"); 
         } else {
             grad.addColorStop(0, bodyColor);
             grad.addColorStop(1, "#000");
