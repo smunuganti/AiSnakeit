@@ -7,53 +7,61 @@
     <style>
         :root {
             --bg: #020617; --panel: #0f172a; --text: #f8fafc;
-            --accent: #38bdf8; --snake: #22c55e; --food: #f43f5e;
+            --accent: #38bdf8; --snake-head: #4ade80; --snake-body: #16a34a; --food: #f43f5e;
         }
         [data-theme="day"] {
             --bg: #f1f5f9; --panel: #ffffff; --text: #0f172a;
-            --accent: #0284c7; --snake: #16a34a; --food: #e11d48;
+            --accent: #0284c7; --snake-head: #22c55e; --snake-body: #15803d; --food: #e11d48;
         }
         body { 
             margin: 0; background: var(--bg); color: var(--text); 
-            font-family: sans-serif; display: flex; align-items: center; 
+            font-family: 'Segoe UI', sans-serif; display: flex; align-items: center; 
             justify-content: center; height: 100vh; overflow: hidden;
-            transition: background 0.3s;
+            transition: background 0.4s ease;
         }
         .container { 
             position: relative; width: 360px; background: var(--panel); 
             border-radius: 24px; padding: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+            transition: background 0.4s ease;
         }
         canvas { background: #000; border-radius: 12px; display: block; margin: 0 auto; touch-action: none; }
         
-        /* Home/Over Screens */
         .screen {
             position: absolute; inset: 20px; background: var(--panel);
             z-index: 10; display: flex; flex-direction: column;
             align-items: center; justify-content: center; border-radius: 12px;
+            transition: background 0.4s ease;
         }
 
-        /* Mobile Controls */
-        .mobile-controls {
-            display: none; grid-template-columns: repeat(3, 1fr);
-            gap: 10px; margin-top: 20px;
+        .theme-switch-container {
+            display: flex; align-items: center; gap: 10px; margin-bottom: 25px;
+            padding: 8px 16px; background: rgba(148, 163, 184, 0.1); border-radius: 20px;
         }
-        .btn {
-            background: rgba(148, 163, 184, 0.1); border: 1px solid var(--accent);
-            border-radius: 12px; height: 50px; display: flex;
-            align-items: center; justify-content: center; font-size: 1.5rem;
-            color: var(--accent); cursor: pointer; user-select: none;
-        }
+        .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; inset: 0; background-color: #475569; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--accent); }
+        input:checked + .slider:before { transform: translateX(22px); }
+
+        .stats-box { text-align: center; margin-bottom: 20px; }
+        .stat-line { font-size: 0.9rem; margin: 5px 0; opacity: 0.8; }
+        .stat-val { font-weight: bold; color: var(--accent); }
+
+        .mobile-controls { display: none; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px; }
+        .btn { background: rgba(148, 163, 184, 0.1); border: 1px solid var(--accent); border-radius: 12px; height: 50px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: var(--accent); cursor: pointer; user-select: none; }
         @media (max-width: 600px) { .mobile-controls { display: grid; } }
 
         .hud { display: flex; justify-content: space-between; margin-bottom: 10px; font-family: monospace; }
-        button.start-btn { padding: 12px 30px; background: var(--accent); border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; }
-        .mode-toggle { position: absolute; top: 10px; right: 10px; cursor: pointer; background: none; border: none; font-size: 1.2rem; }
+        button.start-btn { padding: 12px 35px; background: var(--accent); border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; font-size: 1rem; }
+        
+        .shake { animation: shake 0.2s 2; }
+        @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
     </style>
 </head>
 <body data-theme="night">
 
 <div class="container" id="gameBox">
-    <button class="mode-toggle" onclick="toggleTheme()" id="themeBtn">☀️</button>
     <div class="hud">
         <div id="scoreTxt">SCORE: 000</div>
         <div id="speedTxt">SPD: 1x</div>
@@ -69,14 +77,23 @@
     </div>
 
     <div id="homeScreen" class="screen">
-        <h1 style="color:var(--accent); margin-bottom:5px;">AI SNAKEIT</h1>
-        <p style="opacity:0.6; margin-bottom:20px;">BEST: <span id="hiVal">0</span></p>
-        <button class="start-btn" onclick="startGame()">INITIALIZE</button>
-    </div>
+        <h1 style="color:var(--accent); margin-bottom:10px; font-size: 2.2rem;">AI SNAKEIT</h1>
+        
+        <div class="theme-switch-container">
+            <span>🌙</span>
+            <label class="switch">
+                <input type="checkbox" id="themeCheckbox" onchange="toggleTheme()">
+                <span class="slider"></span>
+            </label>
+            <span>☀️</span>
+        </div>
 
-    <div id="overScreen" class="screen" style="display:none">
-        <h2 style="color:var(--food)">CRASHED</h2>
-        <button class="start-btn" onclick="startGame()">REBOOT</button>
+        <div class="stats-box">
+            <div class="stat-line" id="lastScoreContainer" style="display:none;">LAST SCORE: <span class="stat-val" id="lastScoreVal">0</span></div>
+            <div class="stat-line">WORLD RECORD: <span class="stat-val" style="color:#fbbf24" id="hiVal">0</span></div>
+        </div>
+
+        <button class="start-btn" onclick="startGame()" id="mainBtn">INITIALIZE</button>
     </div>
 </div>
 
@@ -84,18 +101,20 @@
 const canvas = document.getElementById("c"), ctx = canvas.getContext("2d");
 let score=0, hiScore=localStorage.getItem("ais_hi")||0, gameRunning=false;
 let snake=[{x:8,y:8}], food={x:5,y:5}, dx=0, dy=-1, currentSpeed=150;
-let ghostTrails = []; // Array to hold the ghosting effect
+let tongueOut = false;
+
+document.getElementById("hiVal").innerText = hiScore;
 
 function toggleTheme() {
-    const isNight = document.body.getAttribute("data-theme") === "night";
-    document.body.setAttribute("data-theme", isNight ? "day" : "night");
-    document.getElementById("themeBtn").innerText = isNight ? "🌙" : "☀️";
+    const isDay = document.getElementById("themeCheckbox").checked;
+    document.body.setAttribute("data-theme", isDay ? "day" : "night");
 }
 
 function startGame() {
-    document.querySelectorAll('.screen').forEach(s=>s.style.display='none');
-    score=0; snake=[{x:8,y:8}]; dx=0; dy=-1; currentSpeed=150; ghostTrails=[];
-    gameRunning=true; runLoop();
+    document.getElementById("homeScreen").style.display = 'none';
+    score=0; snake=[{x:8,y:8}]; dx=0; dy=-1; currentSpeed=150;
+    gameRunning=true; 
+    runLoop();
 }
 
 function handleInput(key) {
@@ -110,15 +129,14 @@ function update() {
     const head = {x: snake[0].x+dx, y: snake[0].y+dy};
     
     if(head.x<0||head.x>=16||head.y<0||head.y>=16||snake.some(s=>s.x===head.x&&s.y===head.y)) {
-        gameRunning=false;
-        document.getElementById("overScreen").style.display='flex';
-        if(score > hiScore) { hiScore=score; localStorage.setItem("ais_hi", hiScore); document.getElementById("hiVal").innerText=hiScore; }
+        gameRunning = false;
+        triggerGameOver();
         return;
     }
 
-    // Capture ghost trail position
-    ghostTrails.push({ body: [...snake], alpha: 0.4 });
-    if(ghostTrails.length > 5) ghostTrails.shift();
+    // Tongue Flick Logic: Flick if close to food or randomly
+    const dist = Math.abs(head.x - food.x) + Math.abs(head.y - food.y);
+    tongueOut = dist < 4 || Math.random() < 0.1;
 
     snake.unshift(head);
     if(head.x===food.x && head.y===food.y) {
@@ -133,27 +151,74 @@ function draw() {
     ctx.fillStyle = isNight ? "#000" : "#fff";
     ctx.fillRect(0,0,320,320);
 
-    // Draw Ghost Trails
-    ghostTrails.forEach((trail, idx) => {
-        trail.alpha -= 0.05;
-        ctx.globalAlpha = Math.max(0, trail.alpha);
-        ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--accent');
-        trail.body.forEach(s => ctx.fillRect(s.x*20+2, s.y*20+2, 15, 15));
-    });
-    ctx.globalAlpha = 1.0;
+    snake.forEach((s, i) => {
+        const isHead = i === 0;
+        const size = Math.max(12, 19 - (i * 0.4)); // Tapering
+        const offset = (20 - size) / 2;
+        const centerX = s.x * 20 + 10;
+        const centerY = s.y * 20 + 10;
 
-    // Draw Snake
-    snake.forEach((s,i) => {
-        ctx.fillStyle = i===0 ? getComputedStyle(document.body).getPropertyValue('--accent') : getComputedStyle(document.body).getPropertyValue('--snake');
-        ctx.fillRect(s.x*20, s.y*20, 19, 19);
+        let grad = ctx.createRadialGradient(centerX-2, centerY-2, 2, centerX, centerY, 10);
+        if(isHead) {
+            grad.addColorStop(0, getComputedStyle(document.body).getPropertyValue('--snake-head'));
+            grad.addColorStop(1, "#166534");
+        } else {
+            grad.addColorStop(0, getComputedStyle(document.body).getPropertyValue('--snake-body'));
+            grad.addColorStop(1, "#064e3b");
+        }
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.roundRect(s.x*20+offset, s.y*20+offset, size, size, isHead?10:5);
+        ctx.fill();
+
+        if(isHead) {
+            // Tongue
+            if(tongueOut) {
+                ctx.strokeStyle = "#f43f5e";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(centerX + dx*8, centerY + dy*8);
+                ctx.lineTo(centerX + dx*15, centerY + dy*15);
+                ctx.stroke();
+            }
+            // Eyes
+            ctx.fillStyle = "white";
+            const eyeOff = 5;
+            if(dx!==0) {
+                ctx.fillRect(s.x*20+12*dx+8, s.y*20+5, 3, 3);
+                ctx.fillRect(s.x*20+12*dx+8, s.y*20+12, 3, 3);
+            } else {
+                ctx.fillRect(s.x*20+5, s.y*20+12*dy+8, 3, 3);
+                ctx.fillRect(s.x*20+12, s.y*20+12*dy+8, 3, 3);
+            }
+        }
     });
 
-    // Draw Food
+    // Pulse Food
+    const pulse = Math.sin(Date.now() / 200) * 2;
     ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--food');
-    ctx.beginPath(); ctx.arc(food.x*20+10, food.y*20+10, 8, 0, 7); ctx.fill();
+    ctx.shadowBlur = 10; ctx.shadowColor = ctx.fillStyle;
+    ctx.beginPath(); ctx.arc(food.x*20+10, food.y*20+10, 7+pulse, 0, 7); ctx.fill();
+    ctx.shadowBlur = 0;
 
-    document.getElementById("scoreTxt").innerText = `SCORE: ${score}`;
+    document.getElementById("scoreTxt").innerText = `SCORE: ${score.toString().padStart(3, '0')}`;
     document.getElementById("speedTxt").innerText = `SPD: ${(150/currentSpeed).toFixed(1)}x`;
+}
+
+function triggerGameOver() {
+    if(score > hiScore) {
+        hiScore = score;
+        localStorage.setItem("ais_hi", hiScore);
+        document.getElementById("hiVal").innerText = hiScore;
+    }
+    document.getElementById("lastScoreVal").innerText = score;
+    document.getElementById("lastScoreContainer").style.display = 'block';
+    document.getElementById("gameBox").classList.add("shake");
+    setTimeout(() => {
+        document.getElementById("homeScreen").style.display = 'flex';
+        document.getElementById("gameBox").classList.remove("shake");
+    }, 200);
 }
 
 function runLoop() {
