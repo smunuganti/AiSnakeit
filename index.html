@@ -6,74 +6,54 @@
     <title>AI Snakeit | Master Edition</title>
     <style>
         :root {
-            /* Night Mode (Default) */
             --bg: #020617; --panel: #0f172a; --text: #f8fafc;
             --accent: #38bdf8; --snake: #22c55e; --food: #f43f5e;
         }
-
         [data-theme="day"] {
             --bg: #f1f5f9; --panel: #ffffff; --text: #0f172a;
             --accent: #0284c7; --snake: #16a34a; --food: #e11d48;
         }
-
         body { 
             margin: 0; background: var(--bg); color: var(--text); 
-            font-family: 'Segoe UI', sans-serif; display: flex; 
-            align-items: center; justify-content: center; height: 100vh; 
+            font-family: sans-serif; display: flex; align-items: center; 
+            justify-content: center; height: 100vh; overflow: hidden;
             transition: background 0.3s;
         }
-
         .container { 
             position: relative; width: 360px; background: var(--panel); 
-            border-radius: 24px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            border: 1px solid rgba(0,0,0,0.1);
+            border-radius: 24px; padding: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.3);
         }
-
-        canvas { background: #000; border-radius: 12px; display: block; margin: 0 auto; }
-
-        /* Animated Mascot */
-        .mascot {
-            width: 80px; height: 40px; margin: 0 auto 15px;
-            display: flex; gap: 5px; align-items: flex-end;
-        }
-        .segment {
-            width: 15px; height: 15px; background: var(--snake);
-            border-radius: 4px; animation: wave 1.2s infinite ease-in-out;
-        }
-        .segment:nth-child(2) { animation-delay: 0.2s; }
-        .segment:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes wave {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-20px); background: var(--accent); }
-        }
-
+        canvas { background: #000; border-radius: 12px; display: block; margin: 0 auto; touch-action: none; }
+        
+        /* Home/Over Screens */
         .screen {
             position: absolute; inset: 20px; background: var(--panel);
             z-index: 10; display: flex; flex-direction: column;
             align-items: center; justify-content: center; border-radius: 12px;
         }
 
-        .mode-toggle {
-            position: absolute; top: 10px; right: 10px;
-            cursor: pointer; font-size: 1.2rem; background: none; border: none;
+        /* Mobile Controls */
+        .mobile-controls {
+            display: none; grid-template-columns: repeat(3, 1fr);
+            gap: 10px; margin-top: 20px;
         }
+        .btn {
+            background: rgba(148, 163, 184, 0.1); border: 1px solid var(--accent);
+            border-radius: 12px; height: 50px; display: flex;
+            align-items: center; justify-content: center; font-size: 1.5rem;
+            color: var(--accent); cursor: pointer; user-select: none;
+        }
+        @media (max-width: 600px) { .mobile-controls { display: grid; } }
 
         .hud { display: flex; justify-content: space-between; margin-bottom: 10px; font-family: monospace; }
-        
-        button {
-            padding: 10px 25px; background: var(--accent); border: none;
-            border-radius: 8px; color: white; font-weight: bold; cursor: pointer;
-        }
-
-        .shake { animation: shake 0.2s 2; }
-        @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+        button.start-btn { padding: 12px 30px; background: var(--accent); border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; }
+        .mode-toggle { position: absolute; top: 10px; right: 10px; cursor: pointer; background: none; border: none; font-size: 1.2rem; }
     </style>
 </head>
 <body data-theme="night">
 
 <div class="container" id="gameBox">
     <button class="mode-toggle" onclick="toggleTheme()" id="themeBtn">☀️</button>
-    
     <div class="hud">
         <div id="scoreTxt">SCORE: 000</div>
         <div id="speedTxt">SPD: 1x</div>
@@ -81,19 +61,22 @@
 
     <canvas id="c" width="320" height="320"></canvas>
     
+    <div class="mobile-controls">
+        <div></div><div class="btn" onclick="handleInput('ArrowUp')">▲</div><div></div>
+        <div class="btn" onclick="handleInput('ArrowLeft')">◀</div>
+        <div class="btn" onclick="handleInput('ArrowDown')">▼</div>
+        <div class="btn" onclick="handleInput('ArrowRight')">▶</div>
+    </div>
+
     <div id="homeScreen" class="screen">
-        <div class="mascot">
-            <div class="segment"></div><div class="segment"></div><div class="segment"></div>
-        </div>
-        <h1 style="margin:0; color:var(--accent)">AI SNAKEIT</h1>
-        <p style="font-size: 0.8rem; opacity: 0.7;">BEST: <span id="hiVal">0</span></p>
-        <button onclick="startGame()">START MISSION</button>
+        <h1 style="color:var(--accent); margin-bottom:5px;">AI SNAKEIT</h1>
+        <p style="opacity:0.6; margin-bottom:20px;">BEST: <span id="hiVal">0</span></p>
+        <button class="start-btn" onclick="startGame()">INITIALIZE</button>
     </div>
 
     <div id="overScreen" class="screen" style="display:none">
-        <h2 id="msg">CRASHED</h2>
-        <p id="finalScore">SCORE: 0</p>
-        <button onclick="startGame()">RETRY</button>
+        <h2 style="color:var(--food)">CRASHED</h2>
+        <button class="start-btn" onclick="startGame()">REBOOT</button>
     </div>
 </div>
 
@@ -101,86 +84,85 @@
 const canvas = document.getElementById("c"), ctx = canvas.getContext("2d");
 let score=0, hiScore=localStorage.getItem("ais_hi")||0, gameRunning=false;
 let snake=[{x:8,y:8}], food={x:5,y:5}, dx=0, dy=-1, currentSpeed=150;
-document.getElementById("hiVal").innerText = hiScore;
+let ghostTrails = []; // Array to hold the ghosting effect
 
-// Theme Engine
 function toggleTheme() {
-    const body = document.body;
-    const isNight = body.getAttribute("data-theme") === "night";
-    body.setAttribute("data-theme", isNight ? "day" : "night");
+    const isNight = document.body.getAttribute("data-theme") === "night";
+    document.body.setAttribute("data-theme", isNight ? "day" : "night");
     document.getElementById("themeBtn").innerText = isNight ? "🌙" : "☀️";
-}
-
-// Speed Engine
-function calculateSpeed() {
-    // Starts at 150ms, gets faster every 2 apples eaten
-    // Minimum limit of 60ms to keep it playable
-    return Math.max(60, 150 - (Math.floor(score / 20) * 10));
 }
 
 function startGame() {
     document.querySelectorAll('.screen').forEach(s=>s.style.display='none');
-    score=0; snake=[{x:8,y:8}]; dx=0; dy=-1; currentSpeed=150;
-    gameRunning=true;
-    runLoop();
+    score=0; snake=[{x:8,y:8}]; dx=0; dy=-1; currentSpeed=150; ghostTrails=[];
+    gameRunning=true; runLoop();
+}
+
+function handleInput(key) {
+    if(!gameRunning) return;
+    if(key==="ArrowUp" && dy===0) { dx=0; dy=-1; }
+    if(key==="ArrowDown" && dy===0) { dx=0; dy=1; }
+    if(key==="ArrowLeft" && dx===0) { dx=-1; dy=0; }
+    if(key==="ArrowRight" && dx===0) { dx=1; dy=0; }
 }
 
 function update() {
-    if(!gameRunning) return;
     const head = {x: snake[0].x+dx, y: snake[0].y+dy};
     
-    // Collision
     if(head.x<0||head.x>=16||head.y<0||head.y>=16||snake.some(s=>s.x===head.x&&s.y===head.y)) {
         gameRunning=false;
-        document.getElementById("gameBox").classList.add("shake");
-        setTimeout(()=>document.getElementById("gameBox").classList.remove("shake"),200);
         document.getElementById("overScreen").style.display='flex';
-        document.getElementById("finalScore").innerText = `SCORE: ${score}`;
+        if(score > hiScore) { hiScore=score; localStorage.setItem("ais_hi", hiScore); document.getElementById("hiVal").innerText=hiScore; }
         return;
     }
 
-    snake.unshift(head);
+    // Capture ghost trail position
+    ghostTrails.push({ body: [...snake], alpha: 0.4 });
+    if(ghostTrails.length > 5) ghostTrails.shift();
 
+    snake.unshift(head);
     if(head.x===food.x && head.y===food.y) {
         score+=10;
-        if(score > hiScore) { hiScore=score; localStorage.setItem("ais_hi", hiScore); }
         food={x:Math.floor(Math.random()*16), y:Math.floor(Math.random()*16)};
-        currentSpeed = calculateSpeed();
-    } else {
-        snake.pop();
-    }
+        currentSpeed = Math.max(60, 150 - (Math.floor(score/20)*10));
+    } else { snake.pop(); }
 }
 
 function draw() {
-    // Background based on mode
-    ctx.fillStyle = document.body.getAttribute("data-theme") === 'night' ? "#000" : "#fff";
+    const isNight = document.body.getAttribute("data-theme") === 'night';
+    ctx.fillStyle = isNight ? "#000" : "#fff";
     ctx.fillRect(0,0,320,320);
 
+    // Draw Ghost Trails
+    ghostTrails.forEach((trail, idx) => {
+        trail.alpha -= 0.05;
+        ctx.globalAlpha = Math.max(0, trail.alpha);
+        ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--accent');
+        trail.body.forEach(s => ctx.fillRect(s.x*20+2, s.y*20+2, 15, 15));
+    });
+    ctx.globalAlpha = 1.0;
+
+    // Draw Snake
     snake.forEach((s,i) => {
         ctx.fillStyle = i===0 ? getComputedStyle(document.body).getPropertyValue('--accent') : getComputedStyle(document.body).getPropertyValue('--snake');
         ctx.fillRect(s.x*20, s.y*20, 19, 19);
     });
 
+    // Draw Food
     ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--food');
     ctx.beginPath(); ctx.arc(food.x*20+10, food.y*20+10, 8, 0, 7); ctx.fill();
 
     document.getElementById("scoreTxt").innerText = `SCORE: ${score}`;
-    document.getElementById("speedTxt").innerText = `SPD: ${((150/currentSpeed).toFixed(1))}x`;
+    document.getElementById("speedTxt").innerText = `SPD: ${(150/currentSpeed).toFixed(1)}x`;
 }
 
 function runLoop() {
     if(!gameRunning) return;
-    update();
-    draw();
+    update(); draw();
     setTimeout(runLoop, currentSpeed);
 }
 
-window.addEventListener("keydown", e => {
-    if(e.key==="ArrowUp" && dy===0) { dx=0; dy=-1; }
-    if(e.key==="ArrowDown" && dy===0) { dx=0; dy=1; }
-    if(e.key==="ArrowLeft" && dx===0) { dx=-1; dy=0; }
-    if(e.key==="ArrowRight" && dx===0) { dx=1; dy=0; }
-});
+window.addEventListener("keydown", e => handleInput(e.key));
 </script>
 </body>
 </html>
